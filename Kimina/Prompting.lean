@@ -41,7 +41,7 @@ def systemMessage : Message := {
 
 def createUserMessage (formalStatement : String) : Message := Id.run do
   let mut prompt := "Think about and solve the following problem step by step in Lean 4."
-  prompt := prompt ++ s!"\n# Formal statement:\n```lean4\n{formalStatement}\n```\n"
+  prompt := prompt ++ s!"\n# Formal statement:\n```lean4\n{formalStatement}\n```"
   return {
     role := .user,
     content := prompt

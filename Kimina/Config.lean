@@ -29,7 +29,7 @@ def getServerPort : M Nat :=
   return serverPort.get (← getOptions)
 
 register_option parameters.temperature100 : Nat := {
-  defValue := 6,
+  defValue := 60,
   group := "parameters",
   descr := "The temperature to use for sampling * 100.",
 }

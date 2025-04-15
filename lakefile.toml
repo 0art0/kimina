@@ -4,3 +4,6 @@ defaultTargets = ["kimina"]
 
 [[lean_lib]]
 name = "Kimina"
+
+[[lean_exe]]
+name = "serve-model"

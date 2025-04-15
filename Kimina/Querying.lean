@@ -16,37 +16,74 @@ def isServerRunning : M Bool := do
 def serveModel : M Unit := do
   unless ← isServerRunning do
     let modelName ← getModelName
-    let _ ← liftM <| IO.Process.spawn {
+    let _child ← liftM <| IO.Process.spawn {
       cmd := "transformers-cli",
-      args := #["serve", "--model", modelName],
+      args := #["serve", "--model", modelName, "--port", toString (← getServerPort)],
     }
 
 def getParams : M Json :=
   return json% {
     "temperature" : $(← getTemperature),
     "top_p" : $(← getTopP),
+    "do_sample" : true,
     "max_tokens" : $(← getMaxTokens)
   }
 
-def queryRaw (prompt : String) : M String := do
-  let queryServerUrl := s!"{← getServerUrl}/forward"
-  let params ← getParams
-  let data := json% {
-    inputs: $(prompt),
-    parameters: $(params)
-  }
-  let out ← liftM <| IO.Process.output {
+def queryRaw (prompt : String) : ExceptT String M String := do
+  let serverUrl ← getServerUrl
+  let params ← liftM (m := M) getParams
+
+  let tokenizeUrl := serverUrl ++ "tokenize"
+  let tokenizeData := json% { "inputs": $(prompt) }
+
+  let tokenizeOutput ← IO.Process.output {
     cmd := "curl",
     args := #[
       "-X", "POST",
       "--header", "Content-Type: application/json",
-      "--data", data.pretty,
-      queryServerUrl
+      "--data", tokenizeData.compress,
+      "-s", tokenizeUrl
     ]
   }
-  if out.exitCode == 0 then
-    return out.stdout
-  else
-    throwError "Failed to query the model. Error: {out.stderr}"
+  let tokenizeJson ← Json.parse tokenizeOutput.stdout
+  IO.println tokenizeJson.pretty
+
+  let inputIds ← tokenizeJson.getObjVal? "input_ids"
+  let attentionMask ← tokenizeJson.getObjVal? "attention_mask"
+
+  let forwardServerUrl := serverUrl ++ "forward"
+  let forwardData := json% {
+    inputs_ids: $(inputIds),
+    attention_mask: $(attentionMask),
+    parameters: $(params)
+  }
+  let forwardOutput ← IO.Process.output {
+    cmd := "curl",
+    args := #[
+      "-X", "POST",
+      "--header", "Content-Type: application/json",
+      "--data", forwardData.compress,
+      "-s", forwardServerUrl
+    ]
+  }
+  let forwardJson ← Json.parse forwardOutput.stdout
+  let outputIds ← forwardJson.getObjVal? "logits"
+
+  let detokenizeUrl := serverUrl ++ "detokenize"
+  let detokenizeData := json% { "token_ids": $(outputIds) }
+
+  let detokenizeOutput ← IO.Process.output {
+    cmd := "curl",
+    args := #[
+      "-X", "POST",
+      "--header", "Content-Type: application/json",
+      "--data", detokenizeData.compress,
+      "-s", detokenizeUrl
+    ]
+  }
+  let detokenizeJson ← Json.parse detokenizeOutput.stdout
+  let generatedText ← detokenizeJson.getObjValAs? String "text"
+
+  return generatedText
 
 end Kimina
