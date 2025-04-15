@@ -34,7 +34,10 @@ def queryRaw (prompt : String) : ExceptT String M String := do
   let params ← liftM (m := M) getParams
 
   let tokenizeUrl := serverUrl ++ "tokenize"
-  let tokenizeData := json% { "inputs": $(prompt) }
+  let tokenizeData := json% {
+    text_input: $(prompt),
+    return_ids: true
+  }
 
   let tokenizeOutput ← IO.Process.output {
     cmd := "curl",
@@ -46,14 +49,13 @@ def queryRaw (prompt : String) : ExceptT String M String := do
     ]
   }
   let tokenizeJson ← Json.parse tokenizeOutput.stdout
-  IO.println tokenizeJson.pretty
 
-  let inputIds ← tokenizeJson.getObjVal? "input_ids"
+  let inputIds ← tokenizeJson.getObjVal? "tokens_ids"
   let attentionMask ← tokenizeJson.getObjVal? "attention_mask"
 
   let forwardServerUrl := serverUrl ++ "forward"
   let forwardData := json% {
-    inputs_ids: $(inputIds),
+    inputs: $(inputIds),
     attention_mask: $(attentionMask),
     parameters: $(params)
   }
@@ -67,10 +69,14 @@ def queryRaw (prompt : String) : ExceptT String M String := do
     ]
   }
   let forwardJson ← Json.parse forwardOutput.stdout
-  let outputIds ← forwardJson.getObjVal? "logits"
+  let output ← forwardJson.getObjVal? "output"
 
   let detokenizeUrl := serverUrl ++ "detokenize"
-  let detokenizeData := json% { "token_ids": $(outputIds) }
+  let detokenizeData := json% {
+    "token_ids": $(output),
+    "skip_special_tokens": true,
+    "cleanup_tokenization_spaces": true
+  }
 
   let detokenizeOutput ← IO.Process.output {
     cmd := "curl",
