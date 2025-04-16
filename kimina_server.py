@@ -120,8 +120,8 @@ def generate(request: GenerateRequest):
         
         return {
             "generated_text": generated_text,
-            "input_tokens": len(inputs["input_ids"][0]),
-            "output_tokens": len(outputs[0])
+            # "input_tokens": len(inputs["input_ids"][0]),
+            # "output_tokens": len(outputs[0])
         }
         
     except Exception as e:

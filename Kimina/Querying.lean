@@ -13,13 +13,13 @@ def isServerRunning : M Bool := do
   let out ← IO.Process.output { cmd := "curl", args := #[← getServerUrl] }
   return out.exitCode == 0
 
-def serveModel : M Unit := do
-  unless ← isServerRunning do
-    let modelName ← getModelName
-    let _child ← liftM <| IO.Process.spawn {
-      cmd := "transformers-cli",
-      args := #["serve", "--model", modelName, "--port", toString (← getServerPort)],
-    }
+-- def serveModel : M Unit := do
+--   unless ← isServerRunning do
+--     let modelName ← getModelName
+--     let _child ← liftM <| IO.Process.spawn {
+--       cmd := "transformers-cli",
+--       args := #["serve", "--model", modelName, "--port", toString (← getServerPort)],
+--     }
 
 def getParams : M Json :=
   return json% {
@@ -30,36 +30,17 @@ def getParams : M Json :=
   }
 
 def queryRaw (prompt : String) : ExceptT String M String := do
-  let tokenizeData := json% {
-    text_input: $(prompt),
-    return_ids: true
-  }
-  let tokenizeJson ← queryServer (endpoint := "tokenize") tokenizeData
-
-  let inputIds ← tokenizeJson.getObjVal? "tokens_ids"
-  let attentionMask ← tokenizeJson.getObjVal? "attention_mask"
   let params ← liftM (m := M) getParams
-
-  let forwardData := json% {
-    inputs: $(inputIds),
-    attention_mask: $(attentionMask),
-    parameters: $(params)
+  let data := json% {
+    prompt: $(prompt),
+    paramters: $(params)
   }
-  let forwardJson ← queryServer (endpoint := "forward") forwardData
-
-  let output ← forwardJson.getObjVal? "output"
-
-  let detokenizeData := json% {
-    "token_ids": $(output),
-    "skip_special_tokens": true,
-    "cleanup_tokenization_spaces": true
-  }
-  let detokenizeJson ← queryServer (endpoint := "detokenize") detokenizeData
-
-  let generatedText ← detokenizeJson.getObjValAs? String "text"
-  return generatedText
+  let result ← queryServer (endpoint := "generate") data
+  let text ← result.getObjValAs? String "generated_text"
+  return text
 where
   queryServer (endpoint : String) (data : Json) : ExceptT String M Json := do
+    IO.println s!"Input to endpoint {endpoint}:\n{data.pretty}"
     let response ← IO.Process.output {
       cmd := "curl",
       args := #[

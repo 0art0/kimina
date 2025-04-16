@@ -21,7 +21,7 @@ def getModelName : M String :=
   return s!"AI-MO/Kimina-Prover-Preview-Distill-{← getModelSize}"
 
 register_option serverPort : Nat := {
-  defValue := 8888,
+  defValue := 8000,
   descr := "The port to use for running the server that hosts the model."
 }
 
