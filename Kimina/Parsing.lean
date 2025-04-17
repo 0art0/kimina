@@ -9,7 +9,7 @@ abbrev Std.Internal.Parsec.String.takeUntil (text : String) : Parser String :=
 
 abbrev Std.Internal.Parsec.String.takeUntilAndSkip (text : String) : Parser String := do
   let s ← takeUntil text
-  skipString text
+  unless ← isEof do skipString text
   return s
 
 declare_syntax_cat kimina
@@ -17,7 +17,7 @@ syntax tacticSeq : kimina
 
 variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M] in
 def parseTacticSeq (tacticText : String) : M (TSyntax ``tacticSeq) := do
-  let stx ← IO.ofExcept <| runParserCategory (← getEnv) `kimina s!"{tacticText}"
+  let stx ← IO.ofExcept <| runParserCategory (← getEnv) `kimina tacticText
   return TSyntax.mk stx[0]
 
 namespace Kimina
@@ -40,17 +40,35 @@ Parsing the language model reponse according to the format
 -/
 
 structure Response where
-  reasoningTrace : String
+  reasoningTrace : MessageData
   tacticSuggestions : TSyntax ``tacticSeq
 
-variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M] in
+variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M]
+
+partial def parseReasoningTrace (reasoningText : String) : M MessageData :=
+  IO.ofExcept <| Parser.run (s := reasoningText) do
+    let (_, messages) ← parseReasoningTraceCore.run #[]
+    return .trace { cls := `kimina, collapsed := false } "Reasoning trace" messages
+where
+  parseReasoningTraceCore : StateT (Array MessageData) Parser Unit := do
+    let text ← takeUntilAndSkip "```tactics"
+    modify (·.push text)
+    ws
+    unless ← (isEof : Parser Bool) do
+      let code ← takeUntilAndSkip "```"
+      let fmtCode : Format := .nest 2 <| .align (force := true) ++ code
+      modify (·.push fmtCode)
+      ws
+      unless ← (isEof : Parser Bool) do
+        parseReasoningTraceCore
+
 def parseResponse (prompt fileContents response : String) : M Response := do
-  let (reasoningTrace, tacticText) ← IO.ofExcept <| Parser.run (s := response) do
+  let (reasoningText, tacticText) ← IO.ofExcept <| Parser.run (s := response) do
     ws
     skipString prompt
     ws
     skipString "<think>"
-    let reasoningTrace ← takeUntilAndSkip "</think>"
+    let reasoningText ← takeUntilAndSkip "</think>"
     ws
     skipString "```lean4"
     ws
@@ -58,7 +76,8 @@ def parseResponse (prompt fileContents response : String) : M Response := do
     let tacticText ← takeUntilAndSkip "```"
     ws
     eof
-    return ( reasoningTrace, tacticText )
+    return ( reasoningText, tacticText )
+  let reasoningTrace ← parseReasoningTrace reasoningText
   let tacticSuggestions ← parseTacticSeq tacticText
   return { reasoningTrace, tacticSuggestions }
 
