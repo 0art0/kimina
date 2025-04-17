@@ -1,6 +1,6 @@
 import Lean
 
-open Lean Std Internal Parser Tactic Parsec String
+open Lean Std Internal Parser Meta Tactic Parsec String
 
 abbrev Std.Internal.Parsec.String.takeUntil (text : String) : Parser String :=
   manyChars <| tryCatch (notFollowedBy <| skipString text)
@@ -15,11 +15,13 @@ abbrev Std.Internal.Parsec.String.takeUntilAndSkip (text : String) : Parser Stri
 declare_syntax_cat kimina
 syntax tacticSeq : kimina
 
-variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M] in
-def parseTacticSeq (tacticText : String) : M (TSyntax ``tacticSeq) := do
-  let stx ← IO.ofExcept <| runParserCategory (← getEnv) `kimina tacticText
-  return TSyntax.mk stx[0]
-
+def parseTacticSeq (tacticText : String) : CoreM TryThis.SuggestionText := do
+  let stx? := runParserCategory (← getEnv) `kimina tacticText
+  match stx? with
+  | .ok stx => return .tsyntax (kind := ``tacticSeq) <| TSyntax.mk stx[0]
+  | .error err =>
+    logWarning m!"Parsing tactic sequence failed with error {err}, using plain text instead."
+    return .string tacticText
 namespace Kimina
 
 /-!
@@ -41,14 +43,17 @@ Parsing the language model reponse according to the format
 
 structure Response where
   reasoningTrace : MessageData
-  tacticSuggestions : TSyntax ``tacticSeq
+  tacticSuggestions : TryThis.SuggestionText
 
-variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M]
-
-partial def parseReasoningTrace (reasoningText : String) : M MessageData :=
-  IO.ofExcept <| Parser.run (s := reasoningText) do
+partial def parseReasoningTrace (reasoningText : String) : CoreM MessageData :=
+  let parseResult := Parser.run (s := reasoningText) do
     let (_, messages) ← parseReasoningTraceCore.run #[]
     return .trace { cls := `kimina, collapsed := false } "Reasoning trace" messages
+  match parseResult with
+  | .ok result => return result
+  | .error err => do
+      logWarning m!"Parsing reasoning trace failed with error {err}, outputting plain text instead."
+      return reasoningText
 where
   parseReasoningTraceCore : StateT (Array MessageData) Parser Unit := do
     let text ← takeUntilAndSkip "```tactics"
@@ -64,8 +69,8 @@ where
       unless ← (isEof : Parser Bool) do
         parseReasoningTraceCore
 
-def parseResponse (prompt fileContents response : String) : M Response := do
-  let (reasoningText, tacticText) ← IO.ofExcept <| Parser.run (s := response) do
+def parseResponse (prompt fileContents response : String) : CoreM Response := do
+  let parseResult := Parser.run (s := response) do
     ws
     skipString prompt
     ws
@@ -79,8 +84,13 @@ def parseResponse (prompt fileContents response : String) : M Response := do
     ws
     eof
     return ( reasoningText, tacticText )
-  let reasoningTrace ← parseReasoningTrace reasoningText
-  let tacticSuggestions ← parseTacticSeq tacticText
-  return { reasoningTrace, tacticSuggestions }
+  match parseResult with
+  | .ok (reasoningText, tacticText) =>
+    let reasoningTrace ← parseReasoningTrace reasoningText
+    let tacticSuggestions ← parseTacticSeq tacticText
+    return { reasoningTrace, tacticSuggestions }
+  | .error err =>
+    logError m!"Model response:\n{response}"
+    throwError "Error in parsing response: {err}\nPlease try running the tactic again to generate a new response."
 
 end Kimina
