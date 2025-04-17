@@ -56,8 +56,10 @@ where
     ws
     unless ← (isEof : Parser Bool) do
       let code ← takeUntilAndSkip "```"
-      let fmtCode : Format := .nest 2 <| .align (force := true) ++ code
-      modify (·.push fmtCode)
+      let codeMsg := MessageData.trace
+        { cls := `tactics, collapsed := false } ""
+        #[Format.align (force := false), code]
+      modify (·.push codeMsg)
       ws
       unless ← (isEof : Parser Bool) do
         parseReasoningTraceCore
