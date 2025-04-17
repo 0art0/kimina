@@ -20,7 +20,7 @@ def parseTacticSeq (tacticText : String) : CoreM TryThis.SuggestionText := do
   match stx? with
   | .ok stx => return .tsyntax (kind := ``tacticSeq) <| TSyntax.mk stx[0]
   | .error err =>
-    logWarning m!"Parsing tactic sequence failed with error {err}, using plain text instead."
+    logWarning m!"⚠ The tactic suggestion does not parse in the current context, displaying plain text instead:\n{err}"
     return .string tacticText
 namespace Kimina
 
@@ -52,7 +52,7 @@ partial def parseReasoningTrace (reasoningText : String) : CoreM MessageData :=
   match parseResult with
   | .ok result => return result
   | .error err => do
-      logWarning m!"Parsing reasoning trace failed with error {err}, outputting plain text instead."
+      logWarning m!"⚠ Parsing reasoning trace failed with error {err}, outputting plain text instead."
       return reasoningText
 where
   parseReasoningTraceCore : StateT (Array MessageData) Parser Unit := do
@@ -82,6 +82,7 @@ def parseResponse (prompt fileContents response : String) : CoreM Response := do
     skipString fileContents
     let tacticText ← takeUntilAndSkip "```"
     ws
+    skipString "<|im_end|>"
     eof
     return ( reasoningText, tacticText )
   match parseResult with
