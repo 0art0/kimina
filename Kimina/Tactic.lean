@@ -19,4 +19,6 @@ elab stx:"kimina" : tactic => do
     (header := "Kimina proof suggestion: ")
     (codeActionPrefix? := "Kimina proof suggestion: ")
     { suggestion := .tsyntax tacticSuggestions }
-  logInfo m!"[[Reasoning trace]]\n\n{reasoningTrace}"
+  let trace := MessageData.trace { cls := `kimina, collapsed := false }
+    m!"Reasoning trace" #[reasoningTrace]
+  logInfo trace
