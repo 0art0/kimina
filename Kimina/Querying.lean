@@ -34,7 +34,6 @@ def queryModel (prompt : String) : M String := do
   IO.ofExcept result
 where
   queryServer (endpoint : String) (data : Json) : ExceptT String M Json := do
-    IO.println s!"Input to endpoint {endpoint}:\n{data.pretty}"
     let response ← IO.Process.output {
       cmd := "curl",
       args := #[
@@ -47,7 +46,6 @@ where
     if response.exitCode != 0 then
       throw s!"Error querying server: {response.stderr}"
     let responseJson ← Json.parse response.stdout
-    IO.println s!"Response at endpoint {endpoint}:\n{responseJson.pretty}"
     return responseJson
   queryPipeline : ExceptT String M String := do
     let params ← liftM (m := M) getParams
