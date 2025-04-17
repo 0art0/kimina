@@ -29,15 +29,9 @@ def getParams : M Json :=
     "max_tokens" : $(← getMaxTokens)
   }
 
-def queryRaw (prompt : String) : ExceptT String M String := do
-  let params ← liftM (m := M) getParams
-  let data := json% {
-    prompt: $(prompt),
-    paramters: $(params)
-  }
-  let result ← queryServer (endpoint := "generate") data
-  let text ← result.getObjValAs? String "generated_text"
-  return text
+def queryModel (prompt : String) : M String := do
+  let result ← queryPipeline.run
+  IO.ofExcept result
 where
   queryServer (endpoint : String) (data : Json) : ExceptT String M Json := do
     IO.println s!"Input to endpoint {endpoint}:\n{data.pretty}"
@@ -55,5 +49,14 @@ where
     let responseJson ← Json.parse response.stdout
     IO.println s!"Response at endpoint {endpoint}:\n{responseJson.pretty}"
     return responseJson
+  queryPipeline : ExceptT String M String := do
+    let params ← liftM (m := M) getParams
+    let data := json% {
+      prompt: $(prompt),
+      paramters: $(params)
+    }
+    let result ← queryServer (endpoint := "generate") data
+    let text ← result.getObjValAs? String "generated_text"
+    return text
 
 end Kimina

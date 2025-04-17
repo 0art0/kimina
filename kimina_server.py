@@ -114,7 +114,7 @@ def generate(request: GenerateRequest):
             outputs = model.generate(**generate_params)
         
         # Decode the generated text
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=False)
         
         logger.info(f"Generated {len(generated_text)} characters")
         
