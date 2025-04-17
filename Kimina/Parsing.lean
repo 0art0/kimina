@@ -80,6 +80,7 @@ def parseResponse (prompt fileContents response : String) : CoreM Response := do
     skipString "```lean4"
     ws
     skipString fileContents
+    ws
     let tacticText ← takeUntilAndSkip "```"
     ws
     skipString "<|im_end|>"
