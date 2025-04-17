@@ -4,6 +4,8 @@ This is a tactic that invokes the [Kimina Prover Preview](https://huggingface.co
 
 Note that this repository is not affiliated with Project Numina or the Kimi Team in any way.
 
+![kimina-final-demo](https://github.com/user-attachments/assets/97b40ee6-ba0e-42d2-b0f4-88ee68e86c57)
+
 ## Set-up
 
 ### Running the LLM
