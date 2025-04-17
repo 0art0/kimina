@@ -1,9 +1,6 @@
 name = "kimina"
 version = "0.1.0"
-defaultTargets = ["kimina"]
+defaultTargets = ["Kimina"]
 
 [[lean_lib]]
 name = "Kimina"
-
-[[lean_exe]]
-name = "serve-model"
