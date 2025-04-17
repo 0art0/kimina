@@ -23,16 +23,16 @@ structure Message where
   content : String
 deriving Inhabited, Repr
 
-instance : ToString Message where
-  toString (msg : Message) :=
-    s!"<|im_start|>{msg.role}\n{msg.content}\n<|im_end|>"
-
-def applyChatTemplate (messages : List Message) (addGenerationPrompt := true) : String :=
-  let mainPrompt := "\n".intercalate (messages.map toString)
+def applyChatTemplate (messages : List Message) (addGenerationPrompt := true)
+    (startToken := "<|im_start|>") (endToken := "<|im_end|>") : String :=
+  let mainPrompt := "\n".intercalate (messages.map displayMessage)
   if addGenerationPrompt then
-    s!"{mainPrompt}\n<|im_start|>assistant\n"
+    s!"{mainPrompt}\n{startToken}assistant\n"
   else
     mainPrompt
+where
+  displayMessage (message : Message) : String :=
+    s!"{startToken}{message.role}\n{message.content}\n{endToken}"
 
 def systemMessage : Message := {
   role := .system,
@@ -47,9 +47,11 @@ def createUserMessage (formalStatement : String) : Message := Id.run do
     content := prompt
   }
 
-def constructPromptText (formalStatement : String) (addGenerationPrompt := true) : String :=
+def constructPromptText (formalStatement : String) (addGenerationPrompt := true)
+    (startToken := "<|im_start|>") (endToken := "<|im_end|>") : String :=
   applyChatTemplate
     [systemMessage, createUserMessage formalStatement]
     (addGenerationPrompt := addGenerationPrompt)
+    (startToken := startToken) (endToken := endToken)
 
 end Kimina
