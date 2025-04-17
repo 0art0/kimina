@@ -57,7 +57,7 @@ where
     unless ← (isEof : Parser Bool) do
       let code ← takeUntilAndSkip "```"
       let codeMsg := MessageData.trace
-        { cls := `tactics, collapsed := false } ""
+        { cls := `tactics, collapsed := false } "🖥️"
         #[Format.align (force := false), code]
       modify (·.push codeMsg)
       ws
