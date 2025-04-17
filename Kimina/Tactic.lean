@@ -15,8 +15,18 @@ elab stx:"kimina" : tactic => do
   let response ← queryModel prompt
   let { reasoningTrace, tacticSuggestions } ← parseResponse
     (prompt := cleanPrompt) (fileContents := filePrefix) (response := response)
+  let suggestionStyle? : Option SuggestionStyle ← do
+    if validate_response.get (← getOptions) then
+      let .tsyntax (kind := ``Tactic.tacticSeq) tacticSeq := tacticSuggestions | pure <| .some .warning
+      try
+        evalTacticSeq tacticSeq
+        pure <| .some .success
+      catch err =>
+        logWarning m!"Tactic sequence evaluation failed with error {err.toMessageData}."
+        pure <| .some .warning
+    else pure none
   addSuggestion stx
     (header := "Kimina proof suggestion: ")
     (codeActionPrefix? := "Kimina proof suggestion: ")
-    { suggestion := .tsyntax tacticSuggestions }
+    { suggestion := tacticSuggestions, style? := suggestionStyle? }
   logInfo reasoningTrace

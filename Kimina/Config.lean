@@ -59,4 +59,9 @@ def getTopP : M Float := do
 def getMaxTokens : M Nat :=
   return parameters.maxTokens.get (← getOptions)
 
+register_option validate_response : Bool := {
+  defValue := true,
+  descr := "Whether to check that the tactic sequence suggested by the model is valid in the current context."
+}
+
 end Kimina
