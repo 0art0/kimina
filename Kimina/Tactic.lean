@@ -13,7 +13,10 @@ elab stx:"kimina" : tactic => do
   let prompt := constructPromptText filePrefix
   let cleanPrompt := constructPromptText filePrefix (startToken := "") (endToken := "")
   let response ← queryModel prompt
-  let { reasoningTrace, tacticSuggestions } ← IO.ofExcept <|
-    parse (prompt := cleanPrompt) (fileContents := filePrefix) (response := response)
-  addSuggestion stx { suggestion := .string tacticSuggestions }
+  let { reasoningTrace, tacticSuggestions } ← parseResponse
+    (prompt := cleanPrompt) (fileContents := filePrefix) (response := response)
+  addSuggestion stx
+    (header := "Kimina proof suggestion: ")
+    (codeActionPrefix? := "Kimina proof suggestion: ")
+    { suggestion := .tsyntax tacticSuggestions }
   logInfo m!"[[Reasoning trace]]\n\n{reasoningTrace}"

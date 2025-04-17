@@ -1,6 +1,6 @@
 import Lean
 
-open Lean Std Internal Parsec String
+open Lean Std Internal Parser Tactic Parsec String
 
 abbrev Std.Internal.Parsec.String.takeUntil (text : String) : Parser String :=
   manyChars <| tryCatch (notFollowedBy <| skipString text)
@@ -11,6 +11,14 @@ abbrev Std.Internal.Parsec.String.takeUntilAndSkip (text : String) : Parser Stri
   let s ← takeUntil text
   skipString text
   return s
+
+declare_syntax_cat kimina
+syntax tacticSeq : kimina
+
+variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M] in
+def parseTacticSeq (tacticText : String) : M (TSyntax ``tacticSeq) := do
+  let stx ← IO.ofExcept <| runParserCategory (← getEnv) `kimina s!"{tacticText}"
+  return TSyntax.mk stx[0]
 
 namespace Kimina
 
@@ -33,10 +41,11 @@ Parsing the language model reponse according to the format
 
 structure Response where
   reasoningTrace : String
-  tacticSuggestions : String
+  tacticSuggestions : TSyntax ``tacticSeq
 
-def parse (prompt fileContents response : String) : Except String Response :=
-  Parser.run (s := response) do
+variable {M} [Monad M] [MonadLiftT IO M] [MonadEnv M] in
+def parseResponse (prompt fileContents response : String) : M Response := do
+  let (reasoningTrace, tacticText) ← IO.ofExcept <| Parser.run (s := response) do
     ws
     skipString prompt
     ws
@@ -46,9 +55,11 @@ def parse (prompt fileContents response : String) : Except String Response :=
     skipString "```lean4"
     ws
     skipString fileContents
-    let tactics ← takeUntilAndSkip "```"
+    let tacticText ← takeUntilAndSkip "```"
     ws
     eof
-    return { reasoningTrace, tacticSuggestions := tactics }
+    return ( reasoningTrace, tacticText )
+  let tacticSuggestions ← parseTacticSeq tacticText
+  return { reasoningTrace, tacticSuggestions }
 
 end Kimina
