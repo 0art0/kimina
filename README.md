@@ -13,7 +13,7 @@ Note that this repository is not affiliated with Project Numina or the Kimi Team
 To run the Kimina Prover Preview model locally, run `kimina-server.py` with the command
 
 ```bash
-python3 kimina-server.py
+python3 kimina_server.py
 ```
 
 The command optionally takes in the flags
